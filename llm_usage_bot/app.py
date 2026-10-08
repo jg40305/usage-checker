@@ -46,6 +46,8 @@ def build_bot(cfg: Config) -> UsageBot:
         providers,
         cfg.guild_id,
         cfg.allowed_user_ids,
-        cfg.notify_channel_id,
+        cfg.notify_channel_id if cfg.notify_mode in ("channel", "both") else None,
+        cfg.allowed_user_ids if cfg.notify_mode in ("dm", "both") else frozenset(),
         timedelta(minutes=cfg.auto_report_minutes) if cfg.auto_report_minutes > 0 else None,
+        timedelta(minutes=cfg.reminder_minutes) if cfg.reminder_minutes > 0 else None,
     )

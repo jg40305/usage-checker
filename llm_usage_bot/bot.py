@@ -108,7 +108,9 @@ class UsageBot(discord.Client):
         guild_id: int | None,
         allowed_user_ids: frozenset[int],
         notify_channel_id: int | None,
+        dm_user_ids: frozenset[int],
         auto_report_interval: timedelta | None,
+        reminder_before: timedelta | None = None,
     ):
         # guilds (not privileged) lets get_channel() hit the cache; nothing else is needed
         super().__init__(intents=discord.Intents(guilds=True))
@@ -116,7 +118,9 @@ class UsageBot(discord.Client):
         self.guild_id = guild_id
         self.allowed_user_ids = allowed_user_ids
         self.notify_channel_id = notify_channel_id
+        self.dm_user_ids = dm_user_ids
         self.auto_report_interval = auto_report_interval
+        self.reminder_before = reminder_before
         self.tree = app_commands.CommandTree(self)
         self._reset_tasks: dict[str, tuple[datetime, asyncio.Task]] = {}
         self._last_error: dict[str, str | None] = {}
@@ -143,7 +147,7 @@ class UsageBot(discord.Client):
             await self.tree.sync()  # global commands can take a while to appear
         for spec in self.providers:
             asyncio.create_task(self._poll_loop(spec))
-        if self.auto_report_interval and self.notify_channel_id:
+        if self.auto_report_interval and self._has_targets:
             asyncio.create_task(self._auto_report_loop())
 
     async def on_ready(self) -> None:
@@ -230,7 +234,7 @@ class UsageBot(discord.Client):
             await asyncio.sleep(spec.poll_seconds)
 
     def _schedule_resets(self, spec: ProviderSpec, usage: SubscriptionUsage) -> None:
-        if not self.notify_channel_id:
+        if not self._has_targets:
             return
         now = datetime.now(timezone.utc)
         for w in usage.windows:
@@ -243,22 +247,58 @@ class UsageBot(discord.Client):
                 if abs((current[0] - w.resets_at).total_seconds()) < 90:
                     continue
                 current[1].cancel()  # reset time moved, e.g. a manual reset
-            task = asyncio.create_task(self._fire_reset(spec.name, w.label, w.resets_at))
+            task = asyncio.create_task(self._fire_reset(spec, w.key, w.label, w.resets_at))
             self._reset_tasks[key] = (w.resets_at, task)
             log.info("%s %s reset scheduled at %s", spec.name, w.label, w.resets_at.isoformat())
 
-    async def _fire_reset(self, name: str, label: str, resets_at: datetime) -> None:
+    async def _fire_reset(self, spec: ProviderSpec, key: str, label: str, resets_at: datetime) -> None:
+        """Remind `reminder_before` ahead of the reset (if still ahead), then announce the reset."""
+        if self.reminder_before:
+            delay = (resets_at - self.reminder_before - datetime.now(timezone.utc)).total_seconds()
+            if delay > 0:  # already inside the window (e.g. bot just started): skip the reminder
+                await asyncio.sleep(delay)
+                await self._send(await self._reminder_text(spec, key, label, resets_at))
         delay = (resets_at - datetime.now(timezone.utc)).total_seconds() + 5
         await asyncio.sleep(max(0, delay))
-        await self._send(f"✅ {name} {label}額度已重置（{_ts(resets_at, 't')}）")
+        await self._send(f"✅ {spec.name} {label}額度已重置（{_ts(resets_at, 't')}）")
+
+    async def _reminder_text(self, spec: ProviderSpec, key: str, label: str, resets_at: datetime) -> str:
+        text = f"⏰ {spec.name} {label}額度 {_ts(resets_at, 'R')} 重置（{_ts(resets_at, 't')}）"
+        try:
+            usage = await spec.fetch_subscription()
+        except Exception as e:
+            log.warning("%s reminder could not refresh usage: %s", spec.name, _error_text(e))
+            return text
+        w = next((w for w in usage.windows if w.key == key), None)
+        if w:
+            text += f"，目前已用 **{w.used_percent:.0f}%**"
+            if spec.stale_after and datetime.now(timezone.utc) - usage.fetched_at > spec.stale_after:
+                text += f"（資料時間 {_ts(usage.fetched_at, 'R')}）"
+        return text
+
+    @property
+    def _has_targets(self) -> bool:
+        return bool(self.notify_channel_id or self.dm_user_ids)
 
     async def _send(self, content: str | None = None, embeds: list[discord.Embed] | None = None) -> None:
-        channel_id = self.notify_channel_id
-        if not channel_id:
-            return
-        try:
-            channel = self.get_channel(channel_id) or await self.fetch_channel(channel_id)
-            await channel.send(content=content, embeds=embeds or [])
-            log.info("posted to channel: %s", content or "(embeds)")
-        except discord.DiscordException:
-            log.exception("failed to post to channel %s", channel_id)
+        """Post a notification to the channel and/or DM, whichever are configured."""
+        if self.notify_channel_id:
+            try:
+                channel = self.get_channel(self.notify_channel_id) or await self.fetch_channel(
+                    self.notify_channel_id
+                )
+                await channel.send(content=content, embeds=embeds or [])
+                log.info("posted to channel: %s", content or "(embeds)")
+            except discord.DiscordException:
+                log.exception("failed to post to channel %s", self.notify_channel_id)
+        for user_id in self.dm_user_ids:
+            try:
+                user = self.get_user(user_id) or await self.fetch_user(user_id)
+                await user.send(content=content, embeds=embeds or [])
+                log.info("sent DM to %s: %s", user, content or "(embeds)")
+            except discord.Forbidden:
+                log.error(
+                    "無法私訊 %s：請確認你和 bot 在同一個伺服器，且該伺服器的隱私設定允許成員私訊", user_id
+                )
+            except discord.DiscordException:
+                log.exception("failed to DM %s", user_id)

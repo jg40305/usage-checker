@@ -28,7 +28,7 @@ import discord
 
 from .app import build_bot
 from .bot import UsageBot
-from .config import ENV_PATH, load_config, parse_ids, read_env, save_env
+from .config import ENV_PATH, NOTIFY_MODES, load_config, parse_ids, read_env, save_env
 
 log = logging.getLogger("llm_usage_bot.gui")
 
@@ -152,15 +152,19 @@ class BotRunner:
         self._last_health_ok = ok
 
 
-# (env key, label, hint, kind) — kind: secret / ids / id / number
+# (env key, label, hint, kind) — kind: secret / ids / id / number / mode
 SETTINGS_FIELDS = (
     ("DISCORD_BOT_TOKEN", "Bot token", "Developer Portal → Bot → Reset Token", "secret"),
-    ("DISCORD_ALLOWED_USER_IDS", "允許的使用者 ID", "選填，留空 = 伺服器裡的人都能用 /usage", "ids"),
+    ("DISCORD_ALLOWED_USER_IDS", "允許的使用者 ID", "選填，留空 = 伺服器裡的人都能用；私訊會發給這些人", "ids"),
     ("DISCORD_GUILD_ID", "伺服器 ID", "選填，填了斜線指令會立即出現", "id"),
-    ("NOTIFY_CHANNEL_ID", "通知頻道 ID", "選填，定時回報與重置通知發到這裡", "id"),
+    ("NOTIFY_MODE", "通知方式", "定時回報、重置提醒與通知要發到哪裡", "mode"),
+    ("NOTIFY_CHANNEL_ID", "通知頻道 ID", "通知方式含「頻道」時需要", "id"),
     ("AUTO_REPORT_MINUTES", "自動回報（分鐘）", "超過幾分鐘沒手動查就自動發，0 = 關閉", "number"),
+    ("REMINDER_MINUTES", "重置前提醒（分鐘）", "5 小時／每週額度重置前幾分鐘提醒，0 = 關閉", "number"),
 )
 REQUIRED = {"DISCORD_BOT_TOKEN"}
+NUMBER_DEFAULT_60 = {"AUTO_REPORT_MINUTES", "REMINDER_MINUTES"}
+MODE_LABELS = dict(zip(NOTIFY_MODES, ("頻道", "私訊給我", "頻道＋私訊")))
 
 
 def _normalize(label: str, kind: str, value: str) -> str:
@@ -175,6 +179,8 @@ def _normalize(label: str, kind: str, value: str) -> str:
         if kind == "id" and len(ids) > 1:
             raise ValueError(f"「{label}」只能填一個 ID")
         return ",".join(map(str, ids))
+    if kind == "mode":
+        return next(mode for mode, text in MODE_LABELS.items() if text == value)
     if kind == "number":
         try:
             number = float(unicodedata.normalize("NFKC", value))
@@ -208,8 +214,12 @@ class SettingsDialog(tk.Toplevel):
         for key, label, hint, kind in SETTINGS_FIELDS:
             star = " *" if key in REQUIRED else ""
             ttk.Label(frame, text=label + star).grid(row=row, column=0, sticky="w", padx=(0, 12))
-            var = tk.StringVar(value=current.get(key, "60" if key == "AUTO_REPORT_MINUTES" else ""))
-            entry = ttk.Entry(frame, textvariable=var, width=52, show="•" if kind == "secret" else "")
+            var = tk.StringVar(value=current.get(key, "60" if key in NUMBER_DEFAULT_60 else ""))
+            if kind == "mode":
+                var.set(MODE_LABELS.get(var.get().lower(), MODE_LABELS["channel"]))
+                entry = ttk.Combobox(frame, textvariable=var, values=list(MODE_LABELS.values()), state="readonly")
+            else:
+                entry = ttk.Entry(frame, textvariable=var, width=52, show="•" if kind == "secret" else "")
             entry.grid(row=row, column=1, sticky="ew")
             if kind == "secret":
                 self.token_entry = entry
@@ -254,6 +264,9 @@ class SettingsDialog(tk.Toplevel):
             except ValueError as e:
                 self.error_var.set(str(e))
                 return
+        if values["NOTIFY_MODE"] != "channel" and not values["DISCORD_ALLOWED_USER_IDS"]:
+            self.error_var.set("要私訊的話，請在「允許的使用者 ID」填你自己的使用者 ID")
+            return
         try:
             save_env(values)
         except OSError as e:

@@ -11,6 +11,7 @@ from dotenv import dotenv_values, load_dotenv, set_key
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ENV_PATH = PROJECT_ROOT / ".env"
 ENV_EXAMPLE_PATH = PROJECT_ROOT / ".env.example"
+NOTIFY_MODES = ("channel", "dm", "both")
 
 
 def read_env() -> dict[str, str]:
@@ -81,7 +82,9 @@ class Config:
 
     bot_token: str
     notify_channel_id: int | None
+    notify_mode: str  # "channel" / "dm" / "both"
     auto_report_minutes: float
+    reminder_minutes: float
 
     claude_cache_path: Path
     claude_stale_hours: float
@@ -98,6 +101,11 @@ def load_config() -> Config:
         allowed = frozenset(parse_ids(os.environ.get("DISCORD_ALLOWED_USER_IDS", "")))
     except ValueError as e:
         raise SystemExit(f"DISCORD_ALLOWED_USER_IDS 裡的「{e}」不是 Discord ID") from e
+    notify_mode = (_str("NOTIFY_MODE") or "channel").lower()
+    if notify_mode not in NOTIFY_MODES:
+        raise SystemExit(f"NOTIFY_MODE 只能是 {' / '.join(NOTIFY_MODES)}")
+    if notify_mode != "channel" and not allowed:
+        raise SystemExit("NOTIFY_MODE 要私訊時，請在 DISCORD_ALLOWED_USER_IDS 填你的使用者 ID（私訊會發給這些人）")
     token = _str("DISCORD_BOT_TOKEN")
     if not token:
         raise SystemExit("請在 .env 設定 DISCORD_BOT_TOKEN")
@@ -106,7 +114,9 @@ def load_config() -> Config:
         allowed_user_ids=allowed,
         bot_token=token,
         notify_channel_id=_int("NOTIFY_CHANNEL_ID"),
+        notify_mode=notify_mode,
         auto_report_minutes=float(_str("AUTO_REPORT_MINUTES") or 60),
+        reminder_minutes=float(_str("REMINDER_MINUTES") or 60),
         claude_cache_path=Path(_str("CLAUDE_CACHE_PATH") or default_claude_cache()),
         claude_stale_hours=float(_str("CLAUDE_STALE_HOURS") or 6),
         anthropic_admin_key=_str("ANTHROPIC_ADMIN_KEY"),

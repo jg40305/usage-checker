@@ -1,7 +1,8 @@
 # LLM Usage Bot
 
 一個 Discord bot，用 `/usage` 一次查看 Claude 與 Codex 的訂閱額度、重置時間與 API 花費。
-超過 `AUTO_REPORT_MINUTES` 分鐘沒有手動查詢時，會自動把用量發到 `NOTIFY_CHANNEL_ID` 頻道；額度重置時也會發通知。
+超過 `AUTO_REPORT_MINUTES` 分鐘沒有手動查詢時，會自動發一次用量；5 小時與每週額度重置前 `REMINDER_MINUTES` 分鐘（預設 60）會先提醒並附上目前用量，重置時也會發通知。
+通知依 `NOTIFY_MODE` 發到 `NOTIFY_CHANNEL_ID` 頻道（`channel`）、私訊給 `DISCORD_ALLOWED_USER_IDS` 的人（`dm`），或兩者（`both`）。私訊需要 bot 和你在同一個伺服器。
 程式在本機執行，只對外連到 Discord，不開任何連接埠。
 
 ## 資料來源
