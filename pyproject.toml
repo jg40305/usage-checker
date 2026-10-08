@@ -1,0 +1,9 @@
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "1.0.0"
+tag_format = "v$version"
+update_changelog_on_bump = true
+version_files = [
+    "llm_usage_bot/codex_source.py:CLIENT_INFO",
+    "llm_usage_bot/billing.py:USER_AGENT",
+]

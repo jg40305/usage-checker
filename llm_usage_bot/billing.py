@@ -14,7 +14,7 @@ import aiohttp
 from .models import SourceError, SpendSummary
 
 TIMEOUT = aiohttp.ClientTimeout(total=20)
-USER_AGENT = "llm-usage-bot/0.1.0"
+USER_AGENT = "llm-usage-bot/1.0.0"
 
 
 def _month_start(now: datetime) -> datetime:

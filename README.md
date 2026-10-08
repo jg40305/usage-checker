@@ -66,3 +66,14 @@ WARNING llm_usage_bot.bot: Claude poll failed: 還沒有 Claude 額度資料：�
 視窗版每 2 秒顯示 Discord gateway 連線狀態與延遲，每 60 秒用 Discord REST API 做一次健康檢查（也可按「立即健康檢查」）。
 
 定時回報與重置通知需要程式持續執行。
+
+## 版本管理
+
+使用 [commitizen](https://commitizen-tools.github.io/commitizen/)，commit 訊息遵循 Conventional Commits（`feat:`、`fix:`、`refactor:`…）。
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\cz commit   # 互動式寫 commit 訊息
+.\.venv\Scripts\cz bump     # 依 commit 決定新版本、更新 CHANGELOG.md、打 tag
+git push --follow-tags
+```

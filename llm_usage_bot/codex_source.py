@@ -16,7 +16,7 @@ from typing import Any
 
 from .models import SourceError, SubscriptionUsage, Window
 
-CLIENT_INFO = {"name": "llm_usage_bot", "title": "LLM Usage Bot", "version": "0.1.0"}
+CLIENT_INFO = {"name": "llm_usage_bot", "title": "LLM Usage Bot", "version": "1.0.0"}
 
 
 def resolve_codex_command() -> list[str]:
