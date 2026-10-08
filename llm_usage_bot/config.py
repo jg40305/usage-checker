@@ -33,7 +33,7 @@ def save_env(values: dict[str, str]) -> None:
         set_key(ENV_PATH, key, value, quote_mode="never")
 
 
-def default_claude_cache() -> Path:
+def claude_cache_path() -> Path:
     # Must match statusline/claude_statusline.py
     base = os.environ.get("LOCALAPPDATA") or str(Path.home() / ".cache")
     return Path(base) / "llm-usage-bot" / "claude_rate_limits.json"
@@ -86,11 +86,9 @@ class Config:
     auto_report_minutes: float
     reminder_minutes: float
 
-    claude_cache_path: Path
     claude_stale_hours: float
     anthropic_admin_key: str | None
 
-    codex_bin: str | None
     codex_poll_minutes: float
     openai_admin_key: str | None
 
@@ -117,10 +115,8 @@ def load_config() -> Config:
         notify_mode=notify_mode,
         auto_report_minutes=float(_str("AUTO_REPORT_MINUTES") or 60),
         reminder_minutes=float(_str("REMINDER_MINUTES") or 60),
-        claude_cache_path=Path(_str("CLAUDE_CACHE_PATH") or default_claude_cache()),
         claude_stale_hours=float(_str("CLAUDE_STALE_HOURS") or 6),
         anthropic_admin_key=_str("ANTHROPIC_ADMIN_KEY"),
-        codex_bin=_str("CODEX_BIN"),
         codex_poll_minutes=float(_str("CODEX_POLL_MINUTES") or 30),
         openai_admin_key=_str("OPENAI_ADMIN_KEY"),
     )

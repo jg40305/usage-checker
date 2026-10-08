@@ -22,13 +22,27 @@ py -3.12 -m venv .venv
 copy .env.example .env   # 再填入內容
 ```
 
-Claude 狀態列（`~/.claude/settings.json`）：
+Claude 狀態列：在 `~/.claude/settings.json` 加入以下設定，`<專案路徑>` 換成這個專案的絕對路徑（用 `/`，例如 `E:/workspace/usage-checker`）。Claude Code 會在任意目錄執行這行指令，所以必須是絕對路徑；腳本只用標準函式庫，不需要 venv。
 
 ```json
 "statusLine": {
   "type": "command",
-  "command": "\"C:/Users/kzsu/workspace/llm-usage-checker-and-notification/.venv/Scripts/python.exe\" \"C:/Users/kzsu/workspace/llm-usage-checker-and-notification/statusline/claude_statusline.py\""
+  "command": "py -3 \"<專案路徑>/statusline/claude_statusline.py\""
 }
+```
+
+設定好之後，在**終端機**執行 `claude` 並送出任意一句 prompt（例如 `hi`），等模型回應完成。額度資料是模型回應時才附帶的，所以：
+
+- 只開 `claude` 不發問，或只用 `/help`、`/usage` 這類本地 slash command，都拿不到資料。
+- VS Code 擴充套件不會執行狀態列，必須用終端機的 `claude`。
+- 只有 Pro/Max 訂閱登入才有額度資料，API key 登入沒有。
+
+成功後終端機底部會顯示 `5h 8% (4h28m) | 7d 25% (3d)` 這類文字，快取寫在 `%LOCALAPPDATA%\llm-usage-bot\claude_rate_limits.json`。
+
+如果 bot 一直出現下面這行，就是上面的步驟還沒完成：
+
+```
+WARNING llm_usage_bot.bot: Claude poll failed: 還沒有 Claude 額度資料：請確認已設定狀態列，並在 Claude Code 裡至少完成一次回應
 ```
 
 ## Discord 設定

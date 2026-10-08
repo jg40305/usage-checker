@@ -10,12 +10,12 @@ from . import billing
 from .bot import ProviderSpec, UsageBot
 from .claude_source import read_claude_usage
 from .codex_source import fetch_codex_usage
-from .config import Config
+from .config import Config, claude_cache_path
 
 
 def build_bot(cfg: Config) -> UsageBot:
     async def claude_usage():
-        return await asyncio.to_thread(read_claude_usage, cfg.claude_cache_path)
+        return await asyncio.to_thread(read_claude_usage, claude_cache_path())
 
     providers = [
         ProviderSpec(
@@ -32,7 +32,7 @@ def build_bot(cfg: Config) -> UsageBot:
         ProviderSpec(
             name="Codex",
             color=0x10A37F,
-            fetch_subscription=partial(fetch_codex_usage, cfg.codex_bin),
+            fetch_subscription=fetch_codex_usage,
             fetch_spend=partial(billing.openai_spend, cfg.openai_admin_key)
             if cfg.openai_admin_key
             else None,

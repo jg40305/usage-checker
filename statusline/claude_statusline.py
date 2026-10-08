@@ -18,9 +18,6 @@ from pathlib import Path
 
 
 def cache_path() -> Path:
-    override = os.environ.get("CLAUDE_CACHE_PATH")
-    if override:
-        return Path(override)
     base = os.environ.get("LOCALAPPDATA") or str(Path.home() / ".cache")
     return Path(base) / "llm-usage-bot" / "claude_rate_limits.json"
 

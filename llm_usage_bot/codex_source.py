@@ -19,17 +19,15 @@ from .models import SourceError, SubscriptionUsage, Window
 CLIENT_INFO = {"name": "llm_usage_bot", "title": "LLM Usage Bot", "version": "0.1.0"}
 
 
-def resolve_codex_command(codex_bin: str | None) -> list[str]:
+def resolve_codex_command() -> list[str]:
     """Return argv for codex, preferring node + codex.js over the npm .cmd shim.
 
     Going through the .cmd shim puts cmd.exe between us and node, so killing
     the shim can orphan the real process. Calling node directly avoids that.
     """
-    if codex_bin:
-        return [codex_bin]
     found = shutil.which("codex")
     if not found:
-        raise SourceError("找不到 codex 指令，請確認已安裝 Codex CLI 或在 .env 設定 CODEX_BIN")
+        raise SourceError("找不到 codex 指令，請確認已安裝 Codex CLI 且在 PATH 裡")
     shim = Path(found)
     script = shim.parent / "node_modules" / "@openai" / "codex" / "bin" / "codex.js"
     node = shutil.which("node")
@@ -38,9 +36,9 @@ def resolve_codex_command(codex_bin: str | None) -> list[str]:
     return [found]
 
 
-async def read_rate_limits(codex_bin: str | None = None, timeout: float = 20.0) -> dict[str, Any]:
+async def read_rate_limits(timeout: float = 20.0) -> dict[str, Any]:
     """Return the raw `account/rateLimits/read` result."""
-    argv = resolve_codex_command(codex_bin) + ["app-server"]
+    argv = resolve_codex_command() + ["app-server"]
     proc = await asyncio.create_subprocess_exec(
         *argv,
         stdin=asyncio.subprocess.PIPE,
@@ -158,5 +156,5 @@ def parse_rate_limits(result: dict[str, Any]) -> SubscriptionUsage:
     )
 
 
-async def fetch_codex_usage(codex_bin: str | None = None) -> SubscriptionUsage:
-    return parse_rate_limits(await read_rate_limits(codex_bin))
+async def fetch_codex_usage() -> SubscriptionUsage:
+    return parse_rate_limits(await read_rate_limits())
