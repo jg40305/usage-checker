@@ -2,32 +2,28 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import timedelta
 from functools import partial
 
 from . import billing
 from .bot import ProviderSpec, UsageBot
-from .claude_source import read_claude_usage
+from .claude_source import fetch_claude_usage
 from .codex_source import fetch_codex_usage
 from .config import Config, claude_cache_path
 
 
 def build_bot(cfg: Config) -> UsageBot:
-    async def claude_usage():
-        return await asyncio.to_thread(read_claude_usage, claude_cache_path())
-
     providers = [
         ProviderSpec(
             name="Claude",
             color=0xD97757,
-            fetch_subscription=claude_usage,
+            fetch_subscription=partial(fetch_claude_usage, claude_cache_path()),
             fetch_spend=partial(billing.anthropic_spend, cfg.anthropic_admin_key)
             if cfg.anthropic_admin_key
             else None,
-            poll_seconds=60,  # cheap local file read
-            stale_after=timedelta(hours=cfg.claude_stale_hours),
-            alert_on_error=False,  # a missing cache just means Claude Code hasn't run yet
+            poll_seconds=cfg.claude_poll_minutes * 60,
+            stale_after=timedelta(hours=cfg.claude_stale_hours),  # only the cache fallback ages
+            alert_on_error=True,  # e.g. Claude Code missing or logged out, and no cache
         ),
         ProviderSpec(
             name="Codex",

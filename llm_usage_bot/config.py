@@ -86,6 +86,7 @@ class Config:
     auto_report_minutes: float
     reminder_minutes: float
 
+    claude_poll_minutes: float
     claude_stale_hours: float
     anthropic_admin_key: str | None
 
@@ -115,6 +116,7 @@ def load_config() -> Config:
         notify_mode=notify_mode,
         auto_report_minutes=float(_str("AUTO_REPORT_MINUTES") or 60),
         reminder_minutes=float(_str("REMINDER_MINUTES") or 60),
+        claude_poll_minutes=float(_str("CLAUDE_POLL_MINUTES") or 5),
         claude_stale_hours=float(_str("CLAUDE_STALE_HOURS") or 6),
         anthropic_admin_key=_str("ANTHROPIC_ADMIN_KEY"),
         codex_poll_minutes=float(_str("CODEX_POLL_MINUTES") or 30),

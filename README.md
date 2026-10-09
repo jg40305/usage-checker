@@ -9,7 +9,7 @@
 
 | | 訂閱額度 | API 花費（選用） |
 |---|---|---|
-| Claude | Claude Code 狀態列提供的 `rate_limits`，由 `statusline/claude_statusline.py` 寫入快取。只在使用 Claude Code 時更新 | Anthropic Admin API `cost_report`（`ANTHROPIC_ADMIN_KEY`） |
+| Claude | `claude -p /usage`（Claude Code 的本地指令），每 `CLAUDE_POLL_MINUTES` 分鐘查一次，即時、不消耗額度，終端機／VS Code／網頁的用量都算在內。失敗時改用狀態列寫入的快取 | Anthropic Admin API `cost_report`（`ANTHROPIC_ADMIN_KEY`） |
 | Codex | `codex app-server` 的 `account/rateLimits/read`，每次查詢即時、不消耗額度 | OpenAI `organization/costs`（`OPENAI_ADMIN_KEY`） |
 
 兩邊都不讀取 Claude／Codex 的登入憑證。
@@ -22,7 +22,9 @@ py -3.12 -m venv .venv
 copy .env.example .env   # 再填入內容
 ```
 
-Claude 狀態列：在 `~/.claude/settings.json` 加入以下設定，`<專案路徑>` 換成這個專案的絕對路徑（用 `/`，例如 `E:/workspace/usage-checker`）。Claude Code 會在任意目錄執行這行指令，所以必須是絕對路徑；腳本只用標準函式庫，不需要 venv。
+Claude：bot 會直接執行 `claude -p /usage`，只要 `claude` 在 PATH 裡、並以 Pro/Max 訂閱登入即可，不需要其他設定。
+
+選用的備援：狀態列快取。`claude /usage` 失敗時（例如 bot 執行環境找不到 `claude`），會改讀這份快取，embed 會標示「來源：狀態列快取」。在 `~/.claude/settings.json` 加入以下設定，`<專案路徑>` 換成這個專案的絕對路徑（用 `/`，例如 `E:/workspace/usage-checker`）。Claude Code 會在任意目錄執行這行指令，所以必須是絕對路徑；腳本只用標準函式庫，不需要 venv。
 
 ```json
 "statusLine": {
@@ -38,12 +40,6 @@ Claude 狀態列：在 `~/.claude/settings.json` 加入以下設定，`<專案�
 - 只有 Pro/Max 訂閱登入才有額度資料，API key 登入沒有。
 
 成功後終端機底部會顯示 `5h 8% (4h28m) | 7d 25% (3d)` 這類文字，快取寫在 `%LOCALAPPDATA%\llm-usage-bot\claude_rate_limits.json`。
-
-如果 bot 一直出現下面這行，就是上面的步驟還沒完成：
-
-```
-WARNING llm_usage_bot.bot: Claude poll failed: 還沒有 Claude 額度資料：請確認已設定狀態列，並在 Claude Code 裡至少完成一次回應
-```
 
 ## Discord 設定
 
