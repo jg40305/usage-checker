@@ -10,6 +10,8 @@ from __future__ import annotations
 import asyncio
 import json
 import shutil
+import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -44,6 +46,8 @@ async def read_rate_limits(timeout: float = 20.0) -> dict[str, Any]:
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.DEVNULL,
+        # no console window flashing up when running under the GUI
+        creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
     )
     assert proc.stdin and proc.stdout
 
